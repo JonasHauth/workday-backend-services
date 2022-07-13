@@ -6,7 +6,7 @@ import json
 class eventRepository:
 
     def __init__(self):
-        self.client = MongoClient('localhost', 27017)
+        self.client = MongoClient('mongodb', 27017)
         self.db = self.client.workday_db
         self.events = self.db.event_collection
 
