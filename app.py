@@ -10,7 +10,6 @@ Sample Request Body
     "summary"
     "start"
     "end"
-
 }
 
 '''
