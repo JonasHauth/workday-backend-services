@@ -16,16 +16,9 @@ from pathlib import Path
 app = Flask(__name__)
 repo = eventRepository()
 
-'''
-Sample Request Body
-{
-    "summary"
-    "start"
-    "end"
-}
-
-'''
-
+"""
+Sync with Google Calendar
+"""
 @app.route('/sync/google', methods=['POST'])
 def sync_google():
 
@@ -66,13 +59,17 @@ def sync_google():
             start = event['start'].get('dateTime')
             end = event['end'].get('dateTime')
             email = event['creator'].get('email')
+            gid = event['id']
                 
+            print(event)
+
             event_dict = {
                 "summary": summary,
                 "start": start,
                 "end": end,
                 "email": email,
-                "from_google": 1
+                "from_google": 1,
+                "gid": gid
             }
 
             repo.save(event_dict)
@@ -85,6 +82,9 @@ def sync_google():
     return response
     
 
+"""
+Get all Events from DB
+"""
 @app.route('/calendar', methods=['GET'])
 def get_events():
     events = repo.get_all()
@@ -93,7 +93,9 @@ def get_events():
     return response
 
 
-
+"""
+Get single Event from DB
+"""
 @app.route('/calendar/<string:event_id>', methods=['GET'])
 def get_event(event_id):
     event = repo.get_id(event_id)
@@ -102,6 +104,9 @@ def get_event(event_id):
     return response
 
 
+"""
+Save single Event in Google Calendar
+"""
 @app.route('/calendar', methods=['POST'])
 def save_event():
     
@@ -130,38 +135,81 @@ def save_event():
     except HttpError as error:
         print('An error occurred: %s' % error)
 
-
-
-    
-    
-    
-    new_event = repo.save(event)
-    response = jsonify(repo.get_id(new_event))
+    response = jsonify("Success")
     response.status_code = 201
     return response
 
+
+"""
+Update single Event in Google Calendar
+"""
 @app.route('/calendar', methods=['PUT'])
 def update_event():
-    body = request.get_json()
-    event_id = body["_id"]
-    updated = repo.update(body)
-    if updated >= 1:
-        response = jsonify(repo.get_id(event_id))
-        response.status_code = 200
-    else:
-        response = jsonify({"status_code": 404})
+    
+    data = request.get_json()
+
+    print(data)
+    
+    credentials = Credentials(
+        token=data['token'],
+        token_uri=data['token_uri'], 
+        client_id=data['client_id'],
+        client_secret=data['client_secret'],
+    )
+
+    event = repo.get_id(data['id'])
+
+    try:
+        service = build('calendar', 'v3', credentials=credentials)
+        gevent = service.events().get(calendarId='primary', eventId=event['gid']).execute()
+        gevent['summary'] = data['summary']
+        gevent['start'] = {"dateTime":data['start'],"timeZone":"Europe/Berlin"}
+        gevent['end'] = {"dateTime":data['end'],"timeZone":"Europe/Berlin"}
+
+        updated_event = service.events().update(calendarId='primary', eventId=gevent['id'], body=gevent).execute()
+
+    except HttpError as error:
+        print('An error occurred: %s' % error)
+
+    response = jsonify({"status_code": 200})
     return response
 
 
-@app.route('/calendar/<string:event_id>', methods=['DELETE'])
-def delete_event(event_id):
-    deleted = repo.delete(event_id)
-    if deleted >= 1:
-        response = jsonify({"status_code": 200})
-    else:
-        response = jsonify({"status_code": 404})
+
+"""
+Delete single Event from Google Calendar
+"""
+@app.route('/calendar', methods=['DELETE'])
+def delete_event():
+    
+    data = request.get_json()
+
+    print(data)
+    
+    credentials = Credentials(
+        token=data['token'],
+        token_uri=data['token_uri'], 
+        client_id=data['client_id'],
+        client_secret=data['client_secret'],
+    )
+
+    event = repo.get_id(data['id'])
+
+    try:
+        service = build('calendar', 'v3', credentials=credentials)
+        service.events().delete(calendarId='primary', eventId=event['gid']).execute()
+
+    except HttpError as error:
+        print('An error occurred: %s' % error)
+
+    response = jsonify("Success")
+    response.status_code = 201
     return response
 
+
+"""
+Serve iCalendar Datei
+"""
 @app.route('/calendar/ics')
 def calendar_ics():
 
