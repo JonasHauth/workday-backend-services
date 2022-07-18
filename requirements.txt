@@ -1,3 +1,6 @@
 Flask==2.1.2
 pymongo
 icalendar
+google-api-python-client 
+google-auth-httplib2 
+google-auth-oauthlib
