@@ -36,7 +36,7 @@ class eventRepository:
     def save(self, event):
         persisted_event = self.events.insert_one(event)
         new_id = json.loads(json_util.dumps(persisted_event.inserted_id))
-        return list(new_id.values())[0]
+        return event
 
 
     """

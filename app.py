@@ -1,5 +1,6 @@
-from flask import Flask, jsonify, request, make_response, send_from_directory
-from eventRepository import eventRepository
+from flask import Flask, jsonify, request, make_response, send_from_directory, Response
+from repositories.eventRepository import eventRepository
+from repositories.userRepository import userRepository
 from icalendar import Calendar, Event, vCalAddress
 import json
 
@@ -14,7 +15,8 @@ from datetime import date
 from pathlib import Path
 
 app = Flask(__name__)
-repo = eventRepository()
+event_repo = eventRepository()
+user_repo = userRepository()
 
 """
 Sync with Google Calendar
@@ -49,7 +51,7 @@ def sync_google():
 
         # Delete existing events from google calendar
         myquery = { "from_google": 1 }
-        count = repo.delete_many(myquery)
+        count = event_repo.delete_many(myquery)
         print(count)
 
 
@@ -72,7 +74,7 @@ def sync_google():
                 "gid": gid
             }
 
-            repo.save(event_dict)
+            event_repo.save(event_dict)
 
     except HttpError as error:
         print('An error occurred: %s' % error)
@@ -87,7 +89,7 @@ Get all Events from DB
 """
 @app.route('/calendar', methods=['GET'])
 def get_events():
-    events = repo.get_all()
+    events = event_repo.get_all()
     response = jsonify(events)
     response.status_code = 200
     return response
@@ -98,7 +100,7 @@ Get single Event from DB
 """
 @app.route('/calendar/<string:event_id>', methods=['GET'])
 def get_event(event_id):
-    event = repo.get_id(event_id)
+    event = event_repo.get_id(event_id)
     response = jsonify(event)
     response.status_code = 200
     return response
@@ -157,7 +159,7 @@ def update_event():
         client_secret=data['client_secret'],
     )
 
-    event = repo.get_id(data['id'])
+    event = event_repo.get_id(data['id'])
 
     try:
         service = build('calendar', 'v3', credentials=credentials)
@@ -193,7 +195,7 @@ def delete_event():
         client_secret=data['client_secret'],
     )
 
-    event = repo.get_id(data['id'])
+    event = event_repo.get_id(data['id'])
 
     try:
         service = build('calendar', 'v3', credentials=credentials)
@@ -208,6 +210,48 @@ def delete_event():
 
 
 """
+Delete all Events from DB
+"""
+@app.route('/calendars', methods=['DELETE'])
+def delete_events():
+        myquery = { }
+        count = event_repo.delete_many(myquery)
+        return jsonify(count), 200
+
+
+"""
+Add User to DB
+"""
+@app.route('/user', methods=['POST'])
+def save_user():
+    data = request.get_json()
+    user_repo.save(data)
+    
+
+"""
+Get User from DB
+"""
+@app.route('/user/<string:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = user_repo.get_id(user_id)
+    response = jsonify(user)
+    response.status_code = 200
+    return response
+
+
+"""
+Delete User from DB
+"""
+@app.route('/user/<string:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = user_repo.delete(user_id)
+    response = jsonify(user)
+    response.status_code = 200
+    return response
+
+
+
+"""
 Serve iCalendar Datei
 """
 @app.route('/calendar/ics')
@@ -216,7 +260,7 @@ def calendar_ics():
     #  Get the calendar data
     cal = Calendar()
 
-    events = repo.get_all()
+    events = event_repo.get_all()
     print(events)
 
     for dbEvent in events:
