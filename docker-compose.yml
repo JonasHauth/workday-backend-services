@@ -12,11 +12,15 @@ services:
   workdayfrontend:
     container_name: frontend
     image: "ghcr.io/jonashauth/workday-frontend:main"
+    secrets:
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
     ports:
-    - 80:5000
+    - 5000:5000
     depends_on:
     - mongodatabase
-  
+
+     
   mongodatabase:
     image : mongo
     container_name: mongodb
