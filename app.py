@@ -68,7 +68,7 @@ def sync_google():
             email = event['creator'].get('email')
                 
             event_dict = {
-                "title": summary,
+                "summary": summary,
                 "start": start,
                 "end": end,
                 "email": email,
@@ -104,7 +104,37 @@ def get_event(event_id):
 
 @app.route('/calendar', methods=['POST'])
 def save_event():
-    event = request.get_json()
+    
+    data = request.get_json()
+
+    print(data)
+    
+    credentials = Credentials(
+        token=data['token'],
+        token_uri=data['token_uri'], 
+        client_id=data['client_id'],
+        client_secret=data['client_secret'],
+    )
+
+    # Save synced events from google calendar      
+    event_dict = {
+        "summary": data['summary'],
+        "start":{"dateTime":data['start'],"timeZone":"Europe/Berlin"},
+        "end":{"dateTime":data['end'],"timeZone":"Europe/Berlin"},
+    }
+
+    try:
+        service = build('calendar', 'v3', credentials=credentials)
+        event = service.events().insert(calendarId='primary', body=event_dict).execute()
+
+    except HttpError as error:
+        print('An error occurred: %s' % error)
+
+
+
+    
+    
+    
     new_event = repo.save(event)
     response = jsonify(repo.get_id(new_event))
     response.status_code = 201
